@@ -1,0 +1,6 @@
+using { db as db } from '../db/schema';
+
+service UserService {
+    entity  Users as projection on  db.Users;
+
+}
