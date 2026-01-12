@@ -1,7 +1,95 @@
 _schema-version: 3.3.0
 ID: demoAuth
+description: A simple CAP project.
 version: 1.0.0
-description: "A simple CAP project."
+modules:
+  - name: demoAuth-srv
+    type: nodejs
+    path: gen/srv
+    requires:
+      - name: demoAuth-db
+      - name: uaa_demoAuth
+    provides:
+      - name: srv-api
+        properties:
+          srv-url: ${default-url}
+    parameters:
+      buildpack: nodejs_buildpack
+      instances: 1
+    build-parameters:
+      builder: npm-ci
+  - name: demoAuth-db-deployer
+    type: hdb
+    path: gen/db
+    requires:
+      - name: demoAuth-db
+    parameters:
+      buildpack: nodejs_buildpack
+  - name: demoAuth-destination-content
+    type: com.sap.application.content
+    requires:
+      - name: demoAuth-destination-service
+        parameters:
+          content-target: true
+      - name: demoAuth_html_repo_host
+        parameters:
+          service-key:
+            name: demoAuth_html_repo_host-key
+      - name: uaa_demoAuth
+        parameters:
+          service-key:
+            name: uaa_demoAuth-key
+    parameters:
+      content:
+        instance:
+          destinations:
+            - Name: managedApprouterConfig_demoAuth_html_repo_host
+              ServiceInstanceName: demoAuth-html5-app-host-service
+              ServiceKeyName: demoAuth_html_repo_host-key
+              sap.cloud.service: managedApprouterConfig
+            - Authentication: OAuth2UserTokenExchange
+              Name: managedApprouterConfig_uaa_demoAuth
+              ServiceInstanceName: demoAuth-xsuaa-service
+              ServiceKeyName: uaa_demoAuth-key
+              sap.cloud.service: managedApprouterConfig
+          existing_destinations_policy: ignore
+    build-parameters:
+      no-source: true
+resources:
+  - name: demoAuth-db
+    type: com.sap.xs.hdi-container
+    parameters:
+      service: hana
+      service-plan: hdi-shared
+  - name: demoAuth-destination-service
+    type: org.cloudfoundry.managed-service
+    parameters:
+      config:
+        HTML5Runtime_enabled: true
+        version: 1.0.0
+      service: destination
+      service-name: demoAuth-destination-service
+      service-plan: lite
+  - name: demoAuth_html_repo_host
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: html5-apps-repo
+      service-name: demoAuth-html5-app-host-service
+      service-plan: app-host
+  - name: uaa_demoAuth
+    type: org.cloudfoundry.managed-service
+    parameters:
+      path: ./xs-security.json
+      service: xsuaa
+      service-name: demoAuth-xsuaa-service
+      service-plan: application
+      config:
+        xsappname: demoAuth-${org}-${space}
+        tenant-mode: dedicated
+        oauth2-configuration:
+          credential-types:
+            - "binding-secret"
+            - "x509"
 parameters:
   enable-parallel-deployments: true
 build-parameters:
@@ -10,33 +98,3 @@ build-parameters:
       commands:
         - npm ci
         - npx cds build --production
-modules:
-  - name: demoAuth-srv
-    type: nodejs
-    path: gen/srv
-    parameters:
-      instances: 1
-      buildpack: nodejs_buildpack
-    build-parameters:
-      builder: npm-ci
-    provides:
-      - name: srv-api # required by consumers of CAP services (e.g. approuter)
-        properties:
-          srv-url: ${default-url}
-    requires:
-      - name: demoAuth-db
-
-  - name: demoAuth-db-deployer
-    type: hdb
-    path: gen/db
-    parameters:
-      buildpack: nodejs_buildpack
-    requires:
-      - name: demoAuth-db
-
-resources:
-  - name: demoAuth-db
-    type: com.sap.xs.hdi-container
-    parameters:
-      service: hana
-      service-plan: hdi-shared
